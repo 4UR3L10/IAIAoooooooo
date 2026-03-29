@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>iaiao_farm</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;500;600;700&family=Barlow:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0f;
+    --bg2: #131316;
+    --bg3: #1a1a1f;
+    --bg4: #212128;
+    --border: #2a2a35;
+    --border2: #363645;
+    --text: #e2e0d8;
+    --text2: #9b9990;
+    --text3: #5f5e58;
+    --amber: #e8a332;
+    --amber2: #c47e18;
+    --amber-dim: rgba(232,163,50,0.12);
+    --amber-dim2: rgba(232,163,50,0.06);
+    --green: #4caf7d;
+    --green-dim: rgba(76,175,125,0.12);
+    --red: #e05252;
+    --red-dim: rgba(224,82,82,0.1);
+    --blue: #5b8def;
+    --blue-dim: rgba(91,141,239,0.1);
+    --radius: 6px;
+    --radius2: 10px;
+    --font-mono: 'Share Tech Mono', monospace;
+    --font-head: 'Barlow Condensed', sans-serif;
+    --font-body: 'Barlow', sans-serif;
+    --sidebar: 340px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 14px; line-height: 1.5; overflow: hidden; }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; pointer-events: none; z-index: 9999;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+  }
+
+  /* Layout */
+  #app { display: flex; height: 100vh; overflow: hidden; }
+  #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  #sidebar { width: var(--sidebar); min-width: var(--sidebar); background: var(--bg2); border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+
+  /* Header */
+  #header {
+    background: var(--bg2); border-bottom: 1px solid var(--border);
+    padding: 0 20px; height: 52px; display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  #logo { font-family: var(--font-mono); font-size: 18px; color: var(--amber); letter-spacing: 2px; display: flex; align-items: center; gap: 8px; }
+  #logo span { color: var(--text3); font-size: 12px; letter-spacing: 1px; font-family: var(--font-mono); }
+  .hdr-actions { display: flex; gap: 8px; align-items: center; }
+
+  /* Buttons */
+  .btn {
+    font-family: var(--font-head); font-size: 13px; font-weight: 600; letter-spacing: 0.5px;
+    padding: 5px 12px; border-radius: var(--radius); border: 1px solid var(--border2);
+    background: var(--bg3); color: var(--text2); cursor: pointer; transition: all 0.15s;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn:hover { background: var(--bg4); color: var(--text); border-color: var(--border2); }
+  .btn.primary { background: var(--amber-dim); border-color: var(--amber2); color: var(--amber); }
+  .btn.primary:hover { background: rgba(232,163,50,0.2); }
+  .btn.danger { background: var(--red-dim); border-color: var(--red); color: var(--red); }
+  .btn.success { background: var(--green-dim); border-color: var(--green); color: var(--green); }
+  .btn.sm { padding: 3px 8px; font-size: 12px; }
+  .btn.icon { padding: 5px 8px; }
+
+  /* Goals list */
+  #goals-area { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  #goals-area::-webkit-scrollbar { width: 4px; }
+  #goals-area::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  /* Goal card */
+  .goal-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius2); overflow: hidden;
+    transition: border-color 0.15s;
+  }
+  .goal-card:hover { border-color: var(--border2); }
+  .goal-card.done { opacity: 0.55; }
+  .goal-card.done .goal-header { background: var(--bg2); }
+
+  .goal-header {
+    background: var(--bg3); padding: 10px 14px;
+    display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid var(--border);
+    cursor: default;
+  }
+  .drag-handle {
+    color: var(--text3); cursor: grab; font-size: 16px; line-height: 1;
+    padding: 2px; user-select: none; flex-shrink: 0;
+  }
+  .drag-handle:active { cursor: grabbing; }
+  .goal-check { width: 18px; height: 18px; border: 2px solid var(--amber2); border-radius: 4px; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .goal-check.checked { background: var(--amber); border-color: var(--amber); }
+  .goal-check svg { width: 11px; height: 11px; color: #000; }
+  .goal-name { flex: 1; font-family: var(--font-head); font-size: 16px; font-weight: 700; letter-spacing: 0.3px; color: var(--text); }
+  .goal-name-input { flex: 1; background: transparent; border: none; outline: none; font-family: var(--font-head); font-size: 16px; font-weight: 700; color: var(--text); }
+  .goal-notes-inline { font-size: 12px; color: var(--text3); font-family: var(--font-mono); margin-left: auto; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .goal-actions { display: flex; gap: 4px; margin-left: auto; }
+
+  .goal-body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 8px; }
+
+  /* Requirement row */
+  .req-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px; background: var(--bg3); border-radius: var(--radius);
+    border: 1px solid var(--border); transition: all 0.15s;
+    cursor: default;
+  }
+  .req-row:hover { border-color: var(--border2); }
+  .req-row.done { opacity: 0.5; }
+  .req-row.done .req-label { text-decoration: line-through; color: var(--text3); }
+  .req-drag { color: var(--text3); cursor: grab; font-size: 13px; flex-shrink: 0; user-select: none; }
+  .req-drag:active { cursor: grabbing; }
+  .req-check { width: 15px; height: 15px; border: 1.5px solid var(--green); border-radius: 3px; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .req-check.checked { background: var(--green); }
+  .req-check svg { width: 9px; height: 9px; color: #000; }
+  .req-qty { font-family: var(--font-mono); font-size: 13px; color: var(--amber); flex-shrink: 0; min-width: 32px; text-align: right; }
+  .req-label { flex: 1; font-size: 13px; color: var(--text); }
+  .req-notes { font-size: 11px; color: var(--text3); font-family: var(--font-mono); }
+  .req-actions { display: flex; gap: 2px; margin-left: auto; }
+
+  /* Inline edit inputs */
+  .req-label-input { flex: 1; background: transparent; border: none; outline: none; font-size: 13px; color: var(--text); font-family: var(--font-body); }
+  .req-qty-input { width: 50px; background: transparent; border: none; outline: none; font-family: var(--font-mono); font-size: 13px; color: var(--amber); text-align: right; }
+  .req-notes-input { width: 120px; background: transparent; border: none; outline: none; font-size: 11px; color: var(--text3); font-family: var(--font-mono); }
+
+  /* Add req row */
+  .add-req-row { display: flex; gap: 6px; align-items: center; margin-top: 4px; }
+  .add-req-row input {
+    background: var(--bg4); border: 1px solid var(--border); border-radius: var(--radius);
+    color: var(--text); font-family: var(--font-body); font-size: 13px; padding: 5px 8px; outline: none;
+    transition: border-color 0.15s;
+  }
+  .add-req-row input:focus { border-color: var(--amber2); }
+  .add-req-row .inp-label { flex: 1; }
+  .add-req-row .inp-qty { width: 56px; font-family: var(--font-mono); }
+  .add-req-row .inp-notes { width: 110px; font-size: 12px; }
+
+  /* Goal notes field */
+  .goal-notes-field { display: flex; align-items: center; gap: 6px; padding: 0 2px; }
+  .goal-notes-field label { font-size: 11px; color: var(--text3); font-family: var(--font-mono); flex-shrink: 0; }
+  .goal-notes-field input { flex: 1; background: transparent; border: none; border-bottom: 1px solid var(--border); outline: none; font-size: 12px; color: var(--text2); font-family: var(--font-mono); padding: 2px 4px; transition: border-color 0.15s; }
+  .goal-notes-field input:focus { border-color: var(--amber2); }
+
+  /* Empty state */
+  #empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; color: var(--text3); font-family: var(--font-mono); text-align: center; padding: 40px; }
+  #empty-state .big { font-size: 48px; opacity: 0.3; }
+  #empty-state h2 { font-family: var(--font-head); font-size: 20px; font-weight: 700; color: var(--text2); letter-spacing: 1px; }
+  #empty-state p { font-size: 13px; line-height: 1.7; max-width: 320px; }
+
+  /* Sidebar */
+  .sidebar-header {
+    padding: 14px 16px 10px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+  }
+  .sidebar-title { font-family: var(--font-head); font-size: 14px; font-weight: 700; letter-spacing: 1.5px; color: var(--amber); text-transform: uppercase; }
+  #summary-list { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  #summary-list::-webkit-scrollbar { width: 4px; }
+  #summary-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  /* Summary item */
+  .summary-item {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .summary-item.complete { border-color: var(--green); background: var(--green-dim); }
+  .summary-top { display: flex; align-items: baseline; gap: 8px; }
+  .summary-qty { font-family: var(--font-mono); font-size: 18px; font-weight: 700; color: var(--amber); flex-shrink: 0; }
+  .summary-item.complete .summary-qty { color: var(--green); }
+  .summary-name { font-family: var(--font-head); font-size: 14px; font-weight: 600; color: var(--text); letter-spacing: 0.2px; }
+  .summary-rem { font-family: var(--font-mono); font-size: 11px; color: var(--text3); margin-left: auto; flex-shrink: 0; }
+  .summary-sources { display: flex; flex-direction: column; gap: 3px; }
+  .summary-source { font-size: 11px; color: var(--text3); display: flex; align-items: center; gap: 5px; font-family: var(--font-mono); }
+  .summary-source .src-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--amber2); flex-shrink: 0; }
+  .summary-source .src-note { color: var(--text3); font-size: 10px; }
+  .summary-bar { height: 2px; background: var(--border); border-radius: 1px; overflow: hidden; }
+  .summary-bar-fill { height: 100%; background: var(--amber); border-radius: 1px; transition: width 0.3s; }
+  .summary-item.complete .summary-bar-fill { background: var(--green); }
+  #summary-empty { padding: 20px; text-align: center; color: var(--text3); font-family: var(--font-mono); font-size: 12px; line-height: 1.8; }
+
+  /* Mobile sidebar toggle */
+  #sidebar-toggle { display: none; }
+
+  /* Drag over */
+  .drag-over-top { border-top: 2px solid var(--amber) !important; }
+  .drag-over-bottom { border-bottom: 2px solid var(--amber) !important; }
+  .dragging { opacity: 0.4; }
+
+  /* Modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+  .modal { background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius2); padding: 24px; width: 420px; max-width: 95vw; display: flex; flex-direction: column; gap: 16px; }
+  .modal h3 { font-family: var(--font-head); font-size: 18px; font-weight: 700; color: var(--amber); letter-spacing: 0.5px; }
+  .modal .field { display: flex; flex-direction: column; gap: 5px; }
+  .modal .field label { font-size: 12px; color: var(--text3); font-family: var(--font-mono); }
+  .modal .field input, .modal .field textarea {
+    background: var(--bg4); border: 1px solid var(--border); border-radius: var(--radius);
+    color: var(--text); font-family: var(--font-body); font-size: 14px; padding: 8px 10px; outline: none; width: 100%;
+    transition: border-color 0.15s;
+  }
+  .modal .field input:focus, .modal .field textarea:focus { border-color: var(--amber2); }
+  .modal .actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+  /* Footer bar */
+  #footer { background: var(--bg2); border-top: 1px solid var(--border); padding: 8px 20px; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  #footer .stat { font-family: var(--font-mono); font-size: 12px; color: var(--text3); display: flex; align-items: center; gap: 5px; }
+  #footer .stat b { color: var(--amber); font-weight: 400; }
+  #footer .sep { color: var(--border2); }
+  #footer-space { flex: 1; }
+
+  /* Mobile */
+  @media (max-width: 768px) {
+    :root { --sidebar: 100vw; }
+    #app { flex-direction: column; }
+    #sidebar { position: fixed; right: 0; top: 0; bottom: 0; width: var(--sidebar); transform: translateX(100%); transition: transform 0.25s; z-index: 100; border-left: none; border-top: 1px solid var(--border); }
+    #sidebar.open { transform: translateX(0); }
+    #sidebar-toggle { display: flex; }
+    #main { height: 100vh; }
+    .goal-actions .btn.sm { padding: 3px 6px; font-size: 11px; }
+    .add-req-row .inp-notes { display: none; }
+  }
+
+  /* Emoji picker */
+  .emoji-field { display: flex; flex-direction: column; gap: 5px; }
+  .emoji-field label { font-size: 12px; color: var(--text3); font-family: var(--font-mono); }
+  .emoji-selected { font-size: 28px; cursor: pointer; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: var(--bg4); border: 1px solid var(--border); border-radius: var(--radius); transition: border-color 0.15s; user-select: none; }
+  .emoji-selected:hover { border-color: var(--amber2); }
+  .emoji-panel { background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius2); padding: 10px; display: none; flex-wrap: wrap; gap: 2px; max-height: 200px; overflow-y: auto; }
+  .emoji-panel.open { display: flex; }
+  .emoji-panel::-webkit-scrollbar { width: 4px; }
+  .emoji-panel::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  .emoji-panel button { font-size: 20px; background: none; border: none; cursor: pointer; padding: 4px 5px; border-radius: 4px; line-height: 1; transition: background 0.1s; }
+  .emoji-panel button:hover { background: var(--bg4); }
+  .emoji-search { background: var(--bg4); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: var(--font-body); font-size: 13px; padding: 5px 8px; outline: none; width: 100%; margin-bottom: 6px; }
+  .emoji-search:focus { border-color: var(--amber2); }
+  .emoji-cat-label { font-size: 10px; color: var(--text3); font-family: var(--font-mono); width: 100%; padding: 4px 2px 2px; letter-spacing: 1px; }
+  .goal-emoji { font-size: 20px; line-height: 1; flex-shrink: 0; }
+  .txt-amber { color: var(--amber); }
+  .txt-green { color: var(--green); }
+  .txt-red { color: var(--red); }
+  .txt-dim { color: var(--text3); }
+  input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+  .progress-ring { display: flex; align-items: center; gap: 8px; }
+  .progress-text { font-family: var(--font-mono); font-size: 12px; color: var(--text3); }
+  .progress-text b { color: var(--green); }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- MAIN -->
+  <div id="main">
+    <div id="header">
+      <div id="logo">
+        ▣ iaiao_farm
+        <span>// universal tracker</span>
+      </div>
+      <div class="hdr-actions">
+        <button class="btn sm" onclick="importJSON()" title="Load from JSON">⬆ IMPORT</button>
+        <button class="btn sm primary" onclick="exportJSON()" title="Save to JSON">⬇ EXPORT</button>
+        <button class="btn sm primary" onclick="showAddGoal()">+ ADD GOAL</button>
+        <button class="btn sm icon" id="sidebar-toggle" onclick="toggleSidebar()">☰ SUMMARY</button>
+      </div>
+    </div>
+
+    <div id="goals-area"></div>
+
+    <div id="footer">
+      <div class="stat">GOALS <b id="stat-goals">0</b></div>
+      <div class="sep">|</div>
+      <div class="stat">DONE <b id="stat-done" class="txt-green">0</b></div>
+      <div class="sep">|</div>
+      <div class="stat">REQS <b id="stat-reqs">0</b></div>
+      <div id="footer-space"></div>
+      <div class="stat txt-dim" id="save-status">saved</div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">▣ Summary</div>
+      <div class="progress-ring">
+        <span class="progress-text">Needed: <b id="sum-count">0</b></span>
+        <button class="btn sm icon" onclick="closeSidebar()" style="display:none" id="sidebar-close">✕</button>
+      </div>
+    </div>
+    <div id="summary-list">
+      <div id="summary-empty">No goals yet.<br>Add goals &amp; requirements<br>to see summary here.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden file input for import -->
+<input type="file" id="file-input" accept=".json" style="display:none" onchange="handleFileImport(event)">
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────
+let state = { goals: [] };
+let dragSrc = null, dragType = null, dragGoalId = null;
+
+// ── Init ──────────────────────────────────────────────────────────────
+function init() {
+  try {
+    const saved = localStorage.getItem('iaiao_farm');
+    if (saved) state = JSON.parse(saved);
+    if (!state.goals) state.goals = [];
+  } catch(e) {}
+  render();
+}
+
+// ── ID gen ────────────────────────────────────────────────────────────
+function uid() { return Math.random().toString(36).slice(2, 9); }
+
+// ── Save ─────────────────────────────────────────────────────────────
+function save() {
+  localStorage.setItem('iaiao_farm', JSON.stringify(state));
+  const el = document.getElementById('save-status');
+  el.textContent = '✓ saved';
+  el.style.color = 'var(--green)';
+  setTimeout(() => { el.textContent = 'saved'; el.style.color = ''; }, 1200);
+}
+
+// ── Render ────────────────────────────────────────────────────────────
+function render() {
+  renderGoals();
+  renderSummary();
+  renderFooter();
+}
+
+function renderGoals() {
+  const area = document.getElementById('goals-area');
+  if (state.goals.length === 0) {
+    area.innerHTML = `<div id="empty-state">
+      <div class="big">◈</div>
+      <h2>NO GOALS YET</h2>
+      <p>Add your first farming goal — it could be a weapon, armor, quest, or anything you're grinding toward.</p>
+      <button class="btn primary" onclick="showAddGoal()">+ ADD FIRST GOAL</button>
+    </div>`;
+    return;
+  }
+  area.innerHTML = '';
+  state.goals.forEach((g, gi) => {
+    const card = buildGoalCard(g, gi);
+    area.appendChild(card);
+  });
+}
+
+function buildGoalCard(g, gi) {
+  const div = document.createElement('div');
+  div.className = 'goal-card' + (g.checked ? ' done' : '');
+  div.dataset.goalId = g.id;
+  div.draggable = false;
+
+  const donePct = g.reqs.length ? Math.round(g.reqs.filter(r => r.checked).length / g.reqs.length * 100) : 0;
+
+  div.innerHTML = `
+    <div class="goal-header" data-goal-id="${g.id}">
+      <span class="drag-handle" draggable="true" data-drag="goal" data-goal-id="${g.id}" title="Drag to reorder">⠿</span>
+      <div class="goal-check${g.checked ? ' checked' : ''}" onclick="toggleGoal('${g.id}')">
+        ${g.checked ? checkSVG() : ''}
+      </div>
+      ${g.emoji ? `<span class="goal-emoji">${g.emoji}</span>` : ''}
+      <span class="goal-name">${esc(g.name)}</span>
+      <div class="goal-actions">
+        <button class="btn sm" onclick="editGoal('${g.id}')" title="Edit goal">✎</button>
+        <button class="btn sm danger" onclick="deleteGoal('${g.id}')" title="Delete goal">✕</button>
+      </div>
+    </div>
+    <div class="goal-body">
+      ${g.notes ? `<div style="font-size:11px;color:var(--text3);font-family:var(--font-mono);padding:0 2px 4px">📌 ${esc(g.notes)}</div>` : ''}
+      <div class="reqs-list" data-goal-id="${g.id}">
+        ${g.reqs.map((r, ri) => buildReqRow(g.id, r, ri)).join('')}
+      </div>
+      ${addReqForm(g.id)}
+    </div>`;
+
+  // Drag events for goal handle
+  const handle = div.querySelector('[data-drag="goal"]');
+  handle.addEventListener('dragstart', e => {
+    dragType = 'goal'; dragSrc = g.id;
+    e.dataTransfer.effectAllowed = 'move';
+    div.classList.add('dragging');
+  });
+  handle.addEventListener('dragend', () => div.classList.remove('dragging'));
+
+  // Drag events for goal card (drop target)
+  div.addEventListener('dragover', e => {
+    if (dragType !== 'goal') return;
+    e.preventDefault();
+    const rect = div.getBoundingClientRect();
+    const mid = rect.top + rect.height / 2;
+    div.classList.remove('drag-over-top', 'drag-over-bottom');
+    div.classList.add(e.clientY < mid ? 'drag-over-top' : 'drag-over-bottom');
+  });
+  div.addEventListener('dragleave', () => div.classList.remove('drag-over-top', 'drag-over-bottom'));
+  div.addEventListener('drop', e => {
+    if (dragType !== 'goal') return;
+    e.preventDefault();
+    div.classList.remove('drag-over-top', 'drag-over-bottom');
+    const targetId = g.id;
+    if (dragSrc === targetId) return;
+    const rect = div.getBoundingClientRect();
+    const mid = rect.top + rect.height / 2;
+    const before = e.clientY < mid;
+    const srcIdx = state.goals.findIndex(x => x.id === dragSrc);
+    const tgtIdx = state.goals.findIndex(x => x.id === targetId);
+    const [moved] = state.goals.splice(srcIdx, 1);
+    const newIdx = state.goals.findIndex(x => x.id === targetId);
+    state.goals.splice(before ? newIdx : newIdx + 1, 0, moved);
+    save(); render();
+  });
+
+  // Req drag/drop
+  const reqList = div.querySelector('.reqs-list');
+  reqList.addEventListener('dragover', e => {
+    if (dragType !== 'req') return;
+    e.preventDefault();
+    const row = e.target.closest('.req-row');
+    reqList.querySelectorAll('.req-row').forEach(r => r.classList.remove('drag-over-top', 'drag-over-bottom'));
+    if (row) {
+      const rect = row.getBoundingClientRect();
+      row.classList.add(e.clientY < rect.top + rect.height / 2 ? 'drag-over-top' : 'drag-over-bottom');
+    }
+  });
+  reqList.addEventListener('dragleave', e => {
+    if (!reqList.contains(e.relatedTarget)) reqList.querySelectorAll('.req-row').forEach(r => r.classList.remove('drag-over-top', 'drag-over-bottom'));
+  });
+  reqList.addEventListener('drop', e => {
+    if (dragType !== 'req') return;
+    e.preventDefault();
+    reqList.querySelectorAll('.req-row').forEach(r => r.classList.remove('drag-over-top', 'drag-over-bottom'));
+    const row = e.target.closest('.req-row');
+    if (!row) return;
+    const targetReqId = row.dataset.reqId;
+    const srcGoal = state.goals.find(x => x.id === dragGoalId);
+    const tgtGoal = state.goals.find(x => x.id === g.id);
+    if (!srcGoal || !tgtGoal) return;
+    const srcIdx = srcGoal.reqs.findIndex(x => x.id === dragSrc);
+    const srcReq = srcGoal.reqs[srcIdx];
+    srcGoal.reqs.splice(srcIdx, 1);
+    const tgtIdx = tgtGoal.reqs.findIndex(x => x.id === targetReqId);
+    const rect = row.getBoundingClientRect();
+    const before = e.clientY < rect.top + rect.height / 2;
+    tgtGoal.reqs.splice(before ? tgtIdx : tgtIdx + 1, 0, srcReq);
+    save(); render();
+  });
+
+  // Add req on Enter
+  const addForm = div.querySelector('.add-req-form');
+  if (addForm) {
+    let reqEmoji = '';
+    const emojiBtn = addForm.querySelector('.add-req-emoji-btn');
+    emojiBtn.addEventListener('click', () => {
+      openEmojiModal(reqEmoji, (picked) => { reqEmoji = picked; emojiBtn.textContent = picked || '➕'; });
+    });
+    addForm.querySelectorAll('input').forEach(inp => {
+      inp.addEventListener('keydown', e => { if (e.key === 'Enter') submitAddReq(g.id, addForm, reqEmoji); });
+    });
+    addForm.querySelector('.add-req-btn').addEventListener('click', () => submitAddReq(g.id, addForm, reqEmoji));
+  }
+
+  return div;
+}
+
+function buildReqRow(goalId, r, ri) {
+  return `<div class="req-row${r.checked ? ' done' : ''}" data-req-id="${r.id}" draggable="false">
+    <span class="req-drag" draggable="true" data-drag="req" data-req-id="${r.id}" data-goal-id="${goalId}"
+      onmousedown="startReqDrag(event, '${r.id}', '${goalId}')">⠿</span>
+    <div class="req-check${r.checked ? ' checked' : ''}" onclick="toggleReq('${goalId}','${r.id}')">
+      ${r.checked ? checkSVG(8) : ''}
+    </div>
+    ${r.emoji ? `<span style="font-size:16px;line-height:1">${r.emoji}</span>` : ''}
+    <span class="req-qty txt-amber">${r.qty}×</span>
+    <span class="req-label">${esc(r.label)}</span>
+    ${r.notes ? `<span class="req-notes">${esc(r.notes)}</span>` : ''}
+    <div class="req-actions">
+      <button class="btn sm icon" onclick="editReq('${goalId}','${r.id}')" title="Edit">✎</button>
+      <button class="btn sm danger icon" onclick="deleteReq('${goalId}','${r.id}')" title="Remove">✕</button>
+    </div>
+  </div>`;
+}
+
+function startReqDrag(e, reqId, goalId) {
+  dragType = 'req'; dragSrc = reqId; dragGoalId = goalId;
+}
+
+function addReqForm(goalId) {
+  return `<div class="add-req-row add-req-form" data-goal-id="${goalId}">
+    <button class="btn sm icon add-req-emoji-btn" title="Pick emoji" style="font-size:16px;min-width:32px">➕</button>
+    <input class="inp-qty" type="number" min="1" placeholder="Qty" value="1" style="width:52px;font-family:var(--font-mono)">
+    <input class="inp-label" type="text" placeholder="Requirement (e.g. Hunt Rathalos)">
+    <input class="inp-notes" type="text" placeholder="Notes (optional)">
+    <button class="btn sm primary add-req-btn">+</button>
+  </div>`;
+}
+
+function submitAddReq(goalId, form, emoji) {
+  const qty = parseInt(form.querySelector('.inp-qty').value) || 1;
+  const label = form.querySelector('.inp-label').value.trim();
+  const notes = form.querySelector('.inp-notes').value.trim();
+  if (!label) return;
+  const g = state.goals.find(x => x.id === goalId);
+  if (!g) return;
+  g.reqs.push({ id: uid(), label, qty, notes, emoji: emoji || '', checked: false });
+  save(); render();
+}
+
+// ── Summary ───────────────────────────────────────────────────────────
+function renderSummary() {
+  const list = document.getElementById('summary-list');
+  const empty = document.getElementById('summary-empty');
+  
+  // Aggregate
+  const map = {}; // key = label.toLowerCase()
+  state.goals.forEach(g => {
+    g.reqs.forEach(r => {
+      const key = r.label.toLowerCase();
+      if (!map[key]) map[key] = { label: r.label, total: 0, done: 0, sources: [] };
+      map[key].total += r.qty;
+      if (r.checked) map[key].done += r.qty;
+      map[key].sources.push({ goalName: g.name, qty: r.qty, notes: r.notes, checked: r.checked });
+    });
+  });
+
+  const items = Object.values(map);
+  document.getElementById('sum-count').textContent = items.length;
+
+  list.innerHTML = '';
+  if (items.length === 0) {
+    list.innerHTML = '<div id="summary-empty">No goals yet.<br>Add goals &amp; requirements<br>to see summary here.</div>';
+    return;
+  }
+
+  items.forEach(item => {
+    const rem = item.total - item.done;
+    const pct = item.total ? Math.round(item.done / item.total * 100) : 0;
+    const complete = rem <= 0;
+    const div = document.createElement('div');
+    div.className = 'summary-item' + (complete ? ' complete' : '');
+    div.innerHTML = `
+      <div class="summary-top">
+        <span class="summary-qty">${complete ? '✓' : rem + '×'}</span>
+        <span class="summary-name">${esc(item.label)}</span>
+        <span class="summary-rem">${item.done}/${item.total}</span>
+      </div>
+      <div class="summary-bar"><div class="summary-bar-fill" style="width:${pct}%"></div></div>
+      <div class="summary-sources">
+        ${item.sources.map(s => `
+          <div class="summary-source">
+            <span class="src-dot" style="${s.checked ? 'background:var(--green)' : ''}"></span>
+            <span style="${s.checked ? 'text-decoration:line-through;opacity:0.5' : ''}">${s.qty}× from <b style="color:var(--text2)">${esc(s.goalName)}</b></span>
+            ${s.notes ? `<span class="src-note">— ${esc(s.notes)}</span>` : ''}
+          </div>`).join('')}
+      </div>`;
+    list.appendChild(div);
+  });
+}
+
+// ── Footer ────────────────────────────────────────────────────────────
+function renderFooter() {
+  const total = state.goals.length;
+  const done = state.goals.filter(g => g.checked).length;
+  const reqs = state.goals.reduce((a, g) => a + g.reqs.length, 0);
+  document.getElementById('stat-goals').textContent = total;
+  document.getElementById('stat-done').textContent = done;
+  document.getElementById('stat-reqs').textContent = reqs;
+}
+
+// ── Emoji Data ────────────────────────────────────────────────────────
+const EMOJI_CATS = [
+  { name: 'SMILEYS', e: ['😀','😁','😂','🤣','😃','😄','😅','😆','😉','😊','😋','😎','😍','🥰','😘','😗','😙','😚','🙂','🤗','🤩','🤔','🤨','😐','😑','😶','🙄','😏','😣','😥','😮','🤐','😯','😪','😫','🥱','😴','😌','😛','😜','😝','🤤','😒','😓','😔','😕','🙃','🤑','😲','☹️','🙁','😖','😞','😟','😤','😢','😭','😦','😧','😨','😩','🤯','😬','😰','😱','🥵','🥶','😳','🤪','😵','🥴','😠','😡','🤬','😷','🤒','🤕','🤢','🤮','🤧','😇','🥳','🥸','🤠','🤡','🤥','🤫','🤭','🧐','🤓'] },
+  { name: 'PEOPLE', e: ['👋','🤚','✋','🖖','👌','🤌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','👍','👎','✊','👊','🤛','🤜','👏','🙌','👐','🤲','🤝','🙏','✍️','💅','🤳','💪','🦾','🦿','🦵','🦶','👂','🦻','👃','🫀','🫁','🧠','🦷','🦴','👀','👁️','👅','👄','👶','🧒','👦','👧','🧑','👱','👨','🧔','👩','🧓','👴','👵','🙍','🙎','🙅','🙆','💁','🙋','🧏','🙇','🤦','🤷','💆','💇','🚶','🧍','🧎','🏃','💃','🕺','👫','👬','👭','🤼','👯','🧖','🛀','🧑‍🤝‍🧑'] },
+  { name: 'ANIMALS', e: ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🙈','🙉','🙊','🐒','🐔','🐧','🐦','🐤','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄','🐝','🐛','🦋','🐌','🐞','🐜','🦟','🦗','🕷️','🦂','🐢','🐍','🦎','🦕','🦖','🦎','🐙','🦑','🦞','🦀','🐡','🐠','🐟','🐬','🐳','🐋','🦈','🐊','🐅','🐆','🦓','🦍','🦧','🦣','🐘','🦛','🦏','🐪','🐫','🦒','🦘','🦬','🐃','🐂','🐄','🐎','🐖','🐏','🐑','🦙','🐐','🦌','🐕','🐩','🦮','🐕‍🦺','🐈','🐈‍⬛','🪶','🐓','🦃','🦤','🦚','🦜','🦢','🦩','🕊️','🐇','🦝','🦨','🦡','🦦','🦥','🐁','🐀','🐿️','🦔'] },
+  { name: 'FOOD', e: ['🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍈','🍒','🍑','🥭','🍍','🥥','🥝','🍅','🍆','🥑','🥦','🥬','🥒','🌶️','🫑','🧄','🧅','🥔','🍠','🥐','🥯','🍞','🥖','🥨','🧀','🥚','🍳','🧈','🥞','🧇','🥓','🥩','🍗','🍖','🦴','🌭','🍔','🍟','🍕','🫓','🥪','🥙','🧆','🌮','🌯','🫔','🥗','🥘','🫕','🍝','🍜','🍲','🍛','🍣','🍱','🥟','🦪','🍤','🍙','🍚','🍘','🍥','🥮','🍢','🧁','🍰','🎂','🍮','🍭','🍬','🍫','🍿','🍩','🍪','🌰','🥜','🍯','🧃','🥤','🧋','☕','🫖','🍵','🧉','🍺','🍻','🥂','🍷','🥃','🍸','🍹','🧊'] },
+  { name: 'TRAVEL', e: ['🚗','🚕','🚙','🚌','🚎','🏎️','🚓','🚑','🚒','🚐','🛻','🚚','🚛','🚜','🏍️','🛵','🛺','🚲','🛴','🛹','🛼','🚏','🛣️','🛤️','⛽','🛞','🚨','🚥','🚦','🛑','🚧','⚓','🛟','⛵','🚤','🛥️','🛳️','⛴️','🚢','✈️','🛩️','🛫','🛬','🪂','💺','🚁','🚟','🚠','🚡','🛰️','🚀','🛸','🚂','🚃','🚄','🚅','🚆','🚇','🚈','🚉','🚊','🚝','🚞','🚋','🗺️','🧭','🏔️','⛰️','🌋','🗻','🏕️','🏖️','🏜️','🏝️','🏟️','🏛️','🏗️','🧱','🏘️','🏚️','🏠','🏡','🏢','🏣','🏤','🏥','🏦','🏨','🏩','🏪','🏫','🏬','🏭','🏯','🏰','💒','🗼','🗽','⛪','🕌','🛕','🕍','⛩️','🕋'] },
+  { name: 'ACTIVITIES', e: ['⚽','🏀','🏈','⚾','🥎','🎾','🏐','🏉','🥏','🎱','🪀','🏓','🏸','🏒','🥍','🏑','🏏','🪃','🥅','⛳','🪁','🏹','🎣','🤿','🥊','🥋','🎽','🛹','🛼','🛷','⛸️','🥌','🎿','⛷️','🏂','🪂','🏋️','🤼','🤸','⛹️','🤺','🏇','🧘','🏄','🏊','🤽','🚣','🧗','🚵','🚴','🏆','🥇','🥈','🥉','🏅','🎖️','🏵️','🎗️','🎫','🎟️','🎪','🤹','🎭','🩰','🎨','🎬','🎤','🎧','🎼','🎵','🎶','🥁','🪘','🎷','🎺','🎸','🪕','🎻','🎲','♟️','🎯','🎳','🎮','🎰','🧩'] },
+  { name: 'OBJECTS', e: ['⌚','📱','📲','💻','⌨️','🖥️','🖨️','🖱️','🖲️','💽','💾','💿','📀','📷','📸','📹','🎥','📽️','🎞️','📞','☎️','📟','📠','📺','📻','🎙️','🎚️','🎛️','🧭','⏱️','⏲️','⏰','🕰️','⌛','⏳','📡','🔋','🪫','🔌','💡','🔦','🕯️','🪔','🧯','🛢️','💰','💴','💵','💶','💷','💸','💳','🪙','💎','⚖️','🪜','🧰','🪛','🔧','🔨','⚒️','🛠️','⛏️','🔩','🪤','🧲','🔫','💣','🧨','🪓','🔪','🗡️','⚔️','🛡️','🪚','🔑','🗝️','🔐','🔏','🔓','🔒','🗄️','🗃️','📦','📫','📮','🗳️','📥','📤','📬','📭','📪','📭','📧','📨','📩','📝','📋','🗒️','📁','📂','📊','📈','📉','📓','📔','📒','📕','📗','📘','📙','📚','📖','🔖','🏷️','💰','🪙','🗑️','📌','📍','✂️','🖊️','🖋️','✒️','🖌️','🖍️','📏','📐','🗂️','🗞️','📰','📄','📃','📑'] },
+  { name: 'SYMBOLS', e: ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟','☮️','✝️','☪️','🕉️','☸️','✡️','🔯','🕎','☯️','☦️','🛐','⛎','♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓','🆔','⚛️','🉑','☢️','☣️','📴','📳','🈶','🈚','🈸','🈺','🈷️','✴️','🆚','🉐','💮','🈴','🈵','🈹','🈲','🅰️','🅱️','🆎','🆑','🅾️','🆘','❌','⭕','🛑','⛔','📛','🚫','💯','❗','❕','❓','❔','‼️','⁉️','🔅','🔆','〽️','⚠️','🚸','🔱','⚜️','🔰','♻️','✅','🈯','💹','❎','🌐','💠','Ⓜ️','🌀','💤','🏧','🚾','♿','🅿️','🛗','🈳','🈹','🚰','🚹','🚺','🚻','🚼','🛹','⚡','🌟','💫','✨','🔥','💥','❄️','🌊','🌀','🌈','🌂'] },
+  { name: 'FLAGS', e: ['🏁','🚩','🎌','🏴','🏳️','🏳️‍🌈','🏳️‍⚧️','🏴‍☠️','🌍','🌎','🌏'] },
+  { name: 'NATURE', e: ['🌱','🌿','☘️','🍀','🎋','🎍','🍃','🍂','🍁','🍄','🌾','💐','🌷','🌹','🥀','🌺','🌸','🌼','🌻','🌞','🌝','🌛','🌜','🌚','🌕','🌖','🌗','🌘','🌑','🌒','🌓','🌔','🌙','🌟','⭐','🌠','🌌','⛅','🌤️','🌥️','🌦️','🌧️','⛈️','🌩️','🌨️','❄️','☃️','⛄','🌬️','💨','🌪️','🌫️','🌊','💧','💦','🌈','☀️','🌤️','⛅','🌥️','☁️','🌦️','🌧️','⛈️','🌩️','🌨️','🌩️','🌫️','🌬️','🌀','🌈'] },
+  { name: 'GAME & RPG', e: ['⚔️','🛡️','🏹','🪄','🔮','🧿','🪬','💀','👻','👾','🎮','🕹️','🎲','🎯','🎪','🧙','🧝','🧛','🧟','🧞','🧜','🧚','🦸','🦹','🧌','👑','💍','🗡️','🪃','🧨','💣','🏰','🗺️','🔑','🗝️','🚪','🪞','🧪','⚗️','🔭','📜','📖','🦄','🐉','🦅','🌋','⚡','🌟','💎','🪙','💰','🏆','🥇','🎖️','🧠','👁️','🔥','❄️','⛩️','🕌','🌙','🌠','✨','🌌','🌀'] },
+];
+
+// ── Emoji Picker ──────────────────────────────────────────────────────
+function openEmojiModal(current, onPick) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal" style="width:480px;max-height:80vh;overflow:hidden;gap:10px">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <h3 style="font-size:15px">PICK EMOJI</h3>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span style="font-size:28px;line-height:1" id="ep-preview">${current || '❓'}</span>
+        <button class="btn sm" id="ep-clear">CLEAR</button>
+      </div>
+    </div>
+    <input class="emoji-search" id="ep-search" placeholder="Search emoji..." autocomplete="off">
+    <div class="emoji-panel open" id="ep-panel" style="max-height:340px"></div>
+    <div class="actions">
+      <button class="btn" id="ep-cancel">CANCEL</button>
+      <button class="btn primary" id="ep-ok">USE SELECTED</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+
+  let selected = current || '';
+  const preview = overlay.querySelector('#ep-preview');
+  const panel = overlay.querySelector('#ep-panel');
+  const search = overlay.querySelector('#ep-search');
+
+  function renderEmojis(filter) {
+    panel.innerHTML = '';
+    EMOJI_CATS.forEach(cat => {
+      const matches = filter ? cat.e.filter(e => e.includes(filter)) : cat.e;
+      if (!matches.length) return;
+      const lbl = document.createElement('div');
+      lbl.className = 'emoji-cat-label'; lbl.textContent = cat.name;
+      panel.appendChild(lbl);
+      matches.forEach(em => {
+        const btn = document.createElement('button');
+        btn.textContent = em;
+        btn.title = em;
+        btn.onclick = () => { selected = em; preview.textContent = em; panel.querySelectorAll('button').forEach(b => b.style.outline=''); btn.style.outline='2px solid var(--amber)'; };
+        panel.appendChild(btn);
+      });
+    });
+  }
+  renderEmojis('');
+  search.addEventListener('input', () => renderEmojis(search.value));
+
+  overlay.querySelector('#ep-clear').onclick = () => { selected = ''; preview.textContent = '❓'; };
+  overlay.querySelector('#ep-cancel').onclick = () => overlay.remove();
+  overlay.querySelector('#ep-ok').onclick = () => { overlay.remove(); onPick(selected); };
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  search.focus();
+}
+
+// ── Goal CRUD ─────────────────────────────────────────────────────────
+function showAddGoal() {
+  let chosenEmoji = '';
+  openModal('ADD GOAL', [
+    { id: 'gname', label: 'GOAL NAME', placeholder: 'e.g. Rathalos Dual Blades', type: 'text' },
+    { id: 'gnotes', label: 'NOTES (optional)', placeholder: 'Location, tips, etc.', type: 'text' }
+  ], (vals, extra) => {
+    if (!vals.gname.trim()) { openConfirm('Goal name is required. Please try again.', () => showAddGoal()); return; }
+    state.goals.push({ id: uid(), name: vals.gname.trim(), notes: vals.gnotes.trim(), emoji: extra.emoji || '', checked: false, reqs: [] });
+    save(); render();
+  }, { emoji: chosenEmoji });
+}
+
+function editGoal(goalId) {
+  const g = state.goals.find(x => x.id === goalId);
+  if (!g) return;
+  openModal('EDIT GOAL', [
+    { id: 'gname', label: 'GOAL NAME', type: 'text', value: g.name },
+    { id: 'gnotes', label: 'NOTES', type: 'text', value: g.notes || '' }
+  ], (vals, extra) => {
+    if (!vals.gname.trim()) return;
+    g.name = vals.gname.trim(); g.notes = vals.gnotes.trim(); g.emoji = extra.emoji;
+    save(); render();
+  }, { emoji: g.emoji || '' });
+}
+
+function deleteGoal(goalId) {
+  const g = state.goals.find(x => x.id === goalId);
+  if (!g) return;
+  openConfirm(`Delete "<b>${esc(g.name)}</b>" and all its requirements?`, () => {
+    state.goals = state.goals.filter(x => x.id !== goalId);
+    save(); render();
+  });
+}
+
+function toggleGoal(goalId) {
+  const g = state.goals.find(x => x.id === goalId);
+  if (!g) return;
+  g.checked = !g.checked;
+  save(); render();
+}
+
+// ── Req CRUD ──────────────────────────────────────────────────────────
+function editReq(goalId, reqId) {
+  const g = state.goals.find(x => x.id === goalId);
+  const r = g && g.reqs.find(x => x.id === reqId);
+  if (!r) return;
+  openModal('EDIT REQUIREMENT', [
+    { id: 'rlabel', label: 'REQUIREMENT', type: 'text', value: r.label },
+    { id: 'rqty', label: 'QUANTITY', type: 'number', value: r.qty },
+    { id: 'rnotes', label: 'NOTES', type: 'text', value: r.notes || '' }
+  ], (vals, extra) => {
+    if (!vals.rlabel.trim()) return;
+    r.label = vals.rlabel.trim(); r.qty = parseInt(vals.rqty) || 1; r.notes = vals.rnotes.trim(); r.emoji = extra.emoji;
+    save(); render();
+  }, { emoji: r.emoji || '' });
+}
+
+function deleteReq(goalId, reqId) {
+  const g = state.goals.find(x => x.id === goalId);
+  if (!g) return;
+  const r = g.reqs.find(x => x.id === reqId);
+  if (!r) return;
+  openConfirm('Remove requirement <b>' + esc(r.label) + '</b>?', () => {
+    g.reqs = g.reqs.filter(x => x.id !== reqId);
+    save(); render();
+  });
+}
+
+function toggleReq(goalId, reqId) {
+  const g = state.goals.find(x => x.id === goalId);
+  const r = g && g.reqs.find(x => x.id === reqId);
+  if (!r) return;
+  r.checked = !r.checked;
+  save(); render();
+}
+
+// ── Confirm Modal ─────────────────────────────────────────────────────
+function openConfirm(message, onYes) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = '<div class="modal" style="max-width:360px;gap:12px"><h3 style="font-size:15px;color:var(--text)">CONFIRM</h3><p style="font-size:13px;color:var(--text2);line-height:1.6">' + message + '</p><div class="actions"><button class="btn" id="mc_cancel">CANCEL</button><button class="btn danger" id="mc_yes">DELETE</button></div></div>';
+  document.body.appendChild(overlay);
+  overlay.querySelector('#mc_cancel').onclick = () => overlay.remove();
+  overlay.querySelector('#mc_yes').onclick = () => { overlay.remove(); onYes(); };
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  overlay.querySelector('#mc_yes').focus();
+}
+
+// ── Modal ─────────────────────────────────────────────────────────────
+function openModal(title, fields, onConfirm, extra) {
+  extra = extra || {};
+  let currentEmoji = extra.emoji || '';
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal">
+    <h3>${title}</h3>
+    <div class="emoji-field">
+      <label>EMOJI (optional)</label>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="emoji-selected" id="m_emoji_btn" title="Click to pick emoji">${currentEmoji || '➕'}</div>
+        <span style="font-size:12px;color:var(--text3);font-family:var(--font-mono)">Click to choose an emoji icon</span>
+      </div>
+    </div>
+    ${fields.map(f => `
+      <div class="field">
+        <label>${f.label}</label>
+        <input id="m_${f.id}" type="${f.type || 'text'}" placeholder="${f.placeholder || ''}" value="${esc(f.value || '')}">
+      </div>`).join('')}
+    <div class="actions">
+      <button class="btn" id="m_cancel">CANCEL</button>
+      <button class="btn primary" id="m_confirm">CONFIRM</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+
+  const emojiBtn = overlay.querySelector('#m_emoji_btn');
+  emojiBtn.addEventListener('click', () => {
+    openEmojiModal(currentEmoji, (picked) => {
+      currentEmoji = picked;
+      emojiBtn.textContent = picked || '➕';
+    });
+  });
+
+  overlay.querySelector('#m_cancel').onclick = () => overlay.remove();
+  overlay.querySelector('#m_confirm').onclick = () => {
+    const vals = {};
+    fields.forEach(f => { vals[f.id] = overlay.querySelector('#m_' + f.id).value; });
+    onConfirm(vals, { emoji: currentEmoji });
+    overlay.remove();
+  };
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  overlay.querySelector(`#m_${fields[0].id}`).focus();
+  overlay.querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') overlay.querySelector('#m_confirm').click(); });
+  });
+}
+
+// ── Import / Export ───────────────────────────────────────────────────
+function exportJSON() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url;
+  a.download = 'iaiao_farm_' + new Date().toISOString().slice(0,10) + '.json';
+  a.click(); URL.revokeObjectURL(url);
+}
+
+function importJSON() { document.getElementById('file-input').click(); }
+
+function handleFileImport(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (!data.goals) throw new Error('Invalid format');
+      openConfirm('Load <b>' + data.goals.length + ' goal(s)</b>? This will replace current data.', () => { state = data; save(); render(); });
+    } catch(err) { openConfirm('Invalid JSON file: ' + err.message, () => {}); }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+// ── Sidebar toggle (mobile) ───────────────────────────────────────────
+function toggleSidebar() {
+  const s = document.getElementById('sidebar');
+  const c = document.getElementById('sidebar-close');
+  s.classList.toggle('open');
+  c.style.display = s.classList.contains('open') ? 'flex' : 'none';
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-close').style.display = 'none';
+}
+
+// Mobile: show close btn when sidebar open via js
+window.addEventListener('resize', () => {
+  if (window.innerWidth > 768) document.getElementById('sidebar').classList.remove('open');
+});
+
+// ── Helpers ───────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function checkSVG(s = 11) {
+  return `<svg width="${s}" height="${s}" viewBox="0 0 12 12" fill="none"><path d="M2 6L5 9L10 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
+// ── Start ─────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
